@@ -254,43 +254,52 @@ const AccountModal = ({ modalRef, mode, account }) => {
 
             {/* Lead Finder Section */}
             <div className="border border-base-200 bg-base-100 p-4 rounded-2xl space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <span className="font-semibold text-sm text-base-content block">Lead Finder Settings</span>
+                  <span className="font-semibold text-sm text-base-content block">Lead Finder</span>
                   <span className="text-xs text-base-content/60 block">Configure Instagram lead scraping limits for this account</span>
                 </div>
-                <input
-                  type="checkbox"
-                  className="toggle toggle-primary toggle-sm"
-                  checked={formData.leadFinderEnabled}
-                  onChange={(e) => setFormData({ ...formData, leadFinderEnabled: e.target.checked })}
-                />
+                <label className="cursor-pointer flex items-center gap-3">
+                  <span className="label-text font-semibold">Enable Lead Finder</span>
+                  <input
+                    type="checkbox"
+                    className="toggle toggle-primary toggle-sm"
+                    checked={formData.leadFinderEnabled}
+                    onChange={(e) => setFormData({ ...formData, leadFinderEnabled: e.target.checked })}
+                  />
+                </label>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-base-200/60">
                 <div className="form-control">
-                  <label className="label py-1">
+                  <label htmlFor="leadFinderDailyTarget" className="label py-1">
                     <span className="label-text text-xs font-semibold">Daily Lead Target</span>
                   </label>
                   <input
                     type="number"
+                    id="leadFinderDailyTarget"
+                    required
+                    step="1"
                     min="0"
                     max="500"
                     value={formData.leadFinderDailyTarget}
                     onChange={(e) => setFormData({ ...formData, leadFinderDailyTarget: e.target.value })}
                     className="input input-bordered input-sm rounded-xl"
                   />
-                  <span className="text-[10px] text-base-content/50 mt-0.5">0 = disabled</span>
+                  <span className="text-[10px] text-base-content/50 mt-0.5">0 = no daily leads</span>
                 </div>
 
                 <div className="form-control">
-                  <label className="label py-1">
+                  <label htmlFor="leadFinderBatchSize" className="label py-1">
                     <span className="label-text text-xs font-semibold">Release Batch Size</span>
                   </label>
                   <input
                     type="number"
                     min="1"
                     max="100"
+                    id="leadFinderBatchSize"
+                    required
+                    step="1"
                     value={formData.leadFinderBatchSize}
                     onChange={(e) => setFormData({ ...formData, leadFinderBatchSize: e.target.value })}
                     className="input input-bordered input-sm rounded-xl"
@@ -299,13 +308,16 @@ const AccountModal = ({ modalRef, mode, account }) => {
                 </div>
 
                 <div className="form-control">
-                  <label className="label py-1">
+                  <label htmlFor="leadFinderInterval" className="label py-1">
                     <span className="label-text text-xs font-semibold">Release Interval</span>
                   </label>
                   <input
                     type="number"
                     min="15"
                     max="1440"
+                    id="leadFinderInterval"
+                    required
+                    step="1"
                     value={formData.leadFinderInterval}
                     onChange={(e) => setFormData({ ...formData, leadFinderInterval: e.target.value })}
                     className="input input-bordered input-sm rounded-xl"
