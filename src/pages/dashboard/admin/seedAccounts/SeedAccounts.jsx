@@ -5,22 +5,13 @@ import {
   Sprout,
   Plus,
   Search,
-  ExternalLink,
-  Pause,
-  Play,
-  Archive,
-  RotateCcw,
   CheckCircle2,
   PauseCircle,
   Archive as ArchiveIcon,
   AlertCircle,
   Instagram,
   Sparkles,
-  Check,
-  X,
   Compass,
-  Tag,
-  Trash2,
 } from 'lucide-react';
 import Swal from 'sweetalert2';
 import toast from 'react-hot-toast';
@@ -28,6 +19,11 @@ import useAxiosSecure from '../../../../hooks/useAxiosSecure';
 import { useMe } from '../../../../hooks/useMe';
 import LoadingState from '../../../../components/common/LoadingState';
 import ErrorState from '../../../../components/common/ErrorState';
+
+import CandidateCard from './components/CandidateCard';
+import OperationalSeedRow from './components/OperationalSeedRow';
+import OperationalSeedCard from './components/OperationalSeedCard';
+import SeedDetailsModal from './components/SeedDetailsModal';
 
 const SeedAccounts = () => {
   const axiosSecure = useAxiosSecure();
@@ -39,6 +35,7 @@ const SeedAccounts = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [actionId, setActionId] = useState(null);
+  const [selectedSeedForDetails, setSelectedSeedForDetails] = useState(null);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['lead-seeds', statusFilter, searchVal],
@@ -147,10 +144,10 @@ const SeedAccounts = () => {
             <div>
               <h1 className="text-2xl font-bold tracking-tight text-base-content flex items-center gap-2">
                 Seed Accounts & Discovery
-                <span className="badge badge-primary badge-sm font-semibold">C1 + C2</span>
+                <span className="badge badge-primary badge-sm font-semibold">C1–C4</span>
               </h1>
               <p className="text-sm text-base-content/60">
-                Manage verified Instagram source seeds and review auto-discovered candidates for lead generation.
+                Review discovered candidates and manage verified Instagram source seeds for lead generation.
               </p>
             </div>
           </div>
@@ -158,7 +155,7 @@ const SeedAccounts = () => {
       </div>
 
       {/* Add Seed Form Card */}
-      <div className="card bg-base-100 border border-base-200 shadow-sm rounded-3xl p-6">
+      <div className="card bg-base-100 border border-base-200 shadow-xs rounded-3xl p-6">
         <div className="flex items-center gap-2 mb-3">
           <Sparkles className="w-5 h-5 text-primary" />
           <h2 className="text-base font-bold text-base-content">Add Verified Instagram Seed</h2>
@@ -208,7 +205,7 @@ const SeedAccounts = () => {
           <button
             onClick={() => setStatusFilter('all')}
             className={`tab rounded-xl text-xs font-semibold transition whitespace-nowrap ${
-              statusFilter === 'all' ? 'tab-active font-bold shadow-sm' : ''
+              statusFilter === 'all' ? 'tab-active font-bold shadow-xs' : ''
             }`}
           >
             All Seeds ({statusFilter === 'all' ? totalCount : seeds.length})
@@ -216,7 +213,7 @@ const SeedAccounts = () => {
           <button
             onClick={() => setStatusFilter('verified')}
             className={`tab rounded-xl text-xs font-semibold transition whitespace-nowrap ${
-              statusFilter === 'verified' ? 'tab-active font-bold shadow-sm text-success' : ''
+              statusFilter === 'verified' ? 'tab-active font-bold shadow-xs text-success' : ''
             }`}
           >
             <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
@@ -225,7 +222,7 @@ const SeedAccounts = () => {
           <button
             onClick={() => setStatusFilter('candidate')}
             className={`tab rounded-xl text-xs font-semibold transition whitespace-nowrap ${
-              statusFilter === 'candidate' ? 'tab-active font-bold shadow-sm text-info' : ''
+              statusFilter === 'candidate' ? 'tab-active font-bold shadow-xs text-info' : ''
             }`}
           >
             <Compass className="w-3.5 h-3.5 mr-1" />
@@ -234,7 +231,7 @@ const SeedAccounts = () => {
           <button
             onClick={() => setStatusFilter('paused')}
             className={`tab rounded-xl text-xs font-semibold transition whitespace-nowrap ${
-              statusFilter === 'paused' ? 'tab-active font-bold shadow-sm text-warning' : ''
+              statusFilter === 'paused' ? 'tab-active font-bold shadow-xs text-warning' : ''
             }`}
           >
             <PauseCircle className="w-3.5 h-3.5 mr-1" />
@@ -243,7 +240,7 @@ const SeedAccounts = () => {
           <button
             onClick={() => setStatusFilter('archived')}
             className={`tab rounded-xl text-xs font-semibold transition whitespace-nowrap ${
-              statusFilter === 'archived' ? 'tab-active font-bold shadow-sm text-base-content/50' : ''
+              statusFilter === 'archived' ? 'tab-active font-bold shadow-xs text-base-content/50' : ''
             }`}
           >
             <ArchiveIcon className="w-3.5 h-3.5 mr-1" />
@@ -266,287 +263,169 @@ const SeedAccounts = () => {
         </div>
       </div>
 
-      {/* Seed Accounts Table */}
-      <div className="card bg-base-100 border border-base-200 shadow-sm rounded-3xl overflow-hidden">
-        {isLoading ? (
-          <div className="p-12 text-center text-base-content/60">
-            <span className="loading loading-spinner loading-md text-primary mb-2"></span>
-            <div>Loading seed accounts...</div>
+      {/* Main Seed List / Review Area */}
+      {isLoading ? (
+        <div className="card bg-base-100 border border-base-200 p-12 text-center text-base-content/60 rounded-3xl shadow-xs">
+          <span className="loading loading-spinner loading-md text-primary mb-2"></span>
+          <div>Loading seed accounts...</div>
+        </div>
+      ) : isError ? (
+        <div className="card bg-base-100 border border-base-200 p-12 text-center text-error rounded-3xl shadow-xs">
+          <AlertCircle className="w-8 h-8 mx-auto mb-2 opacity-80" />
+          <div>Failed to load seed accounts.</div>
+        </div>
+      ) : seeds.length === 0 ? (
+        <div className="card bg-base-100 border border-base-200 p-12 text-center text-base-content/60 space-y-2 rounded-3xl shadow-xs">
+          <Sprout className="w-10 h-10 mx-auto text-base-content/30" />
+          <div className="font-semibold text-base">No seed accounts found</div>
+          <p className="text-xs text-base-content/50 max-w-sm mx-auto">
+            {searchVal.trim() || statusFilter !== 'all'
+              ? 'No seeds match your current filters.'
+              : 'Add verified Instagram seed accounts above or run Discovery to find candidates.'}
+          </p>
+        </div>
+      ) : statusFilter === 'candidate' ? (
+        /* Mode 1: Dedicated Candidate Review Queue */
+        <div className="space-y-4">
+          <div className="flex items-center justify-between px-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="badge badge-info badge-sm font-semibold text-white">
+                Candidate Review Queue ({seeds.length})
+              </span>
+              <span className="text-xs text-base-content/50">
+                Review discovered profiles and qualify them into your verified seed pool.
+              </span>
+            </div>
           </div>
-        ) : isError ? (
-          <div className="p-12 text-center text-error">
-            <AlertCircle className="w-8 h-8 mx-auto mb-2 opacity-80" />
-            <div>Failed to load seed accounts.</div>
+
+          <div className="space-y-3">
+            {seeds.map((seed) => (
+              <CandidateCard
+                key={seed._id}
+                seed={seed}
+                onUpdateStatus={handleUpdateStatus}
+                onDelete={handleDeleteSeed}
+                onOpenDetails={(s) => setSelectedSeedForDetails(s)}
+                isActing={actionId === seed._id}
+              />
+            ))}
           </div>
-        ) : seeds.length === 0 ? (
-          <div className="p-12 text-center text-base-content/60 space-y-2">
-            <Sprout className="w-10 h-10 mx-auto text-base-content/30" />
-            <div className="font-semibold text-base">No seed accounts found</div>
-            <p className="text-xs text-base-content/50 max-w-sm mx-auto">
-              {searchVal.trim() || statusFilter !== 'all'
-                ? 'No seeds match your search filter.'
-                : 'Add verified Instagram seed accounts above or run Discovery to find candidates.'}
-            </p>
+        </div>
+      ) : statusFilter !== 'all' ? (
+        /* Mode 2: Compact Operational List for Verified / Paused / Archived */
+        <div className="space-y-3">
+          {/* Desktop Table */}
+          <div className="hidden md:block card bg-base-100 border border-base-200 shadow-xs rounded-3xl overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="table w-full">
+                <thead className="bg-base-200/50 text-base-content/70 uppercase text-[11px] font-bold">
+                  <tr>
+                    <th className="py-4 px-6">Account</th>
+                    <th className="py-4 px-4 text-center">Status</th>
+                    <th className="py-4 px-4 text-center">Source</th>
+                    <th className="py-4 px-4">Activity Info</th>
+                    <th className="py-4 px-6 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-base-200">
+                  {seeds.map((seed) => (
+                    <OperationalSeedRow
+                      key={seed._id}
+                      seed={seed}
+                      onUpdateStatus={handleUpdateStatus}
+                      onDelete={handleDeleteSeed}
+                      onOpenDetails={(s) => setSelectedSeedForDetails(s)}
+                      isActing={actionId === seed._id}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="table w-full">
-              <thead className="bg-base-200/50 text-base-content/70 uppercase text-[11px] font-bold">
-                <tr>
-                  <th className="py-4 px-6">Account</th>
-                  <th className="py-4 px-4 text-center">Status</th>
-                  <th className="py-4 px-4 text-center">Source</th>
-                  <th className="py-4 px-4">Discovery / Verified Info</th>
-                  <th className="py-4 px-6 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-base-200">
-                {seeds.map((seed) => {
-                  const isVerified = seed.status === 'verified';
-                  const isCandidate = seed.status === 'candidate';
-                  const isPaused = seed.status === 'paused';
-                  const isArchived = seed.status === 'archived';
-                  const isActing = actionId === seed._id;
 
-                  return (
-                    <tr key={seed._id} className="hover:bg-base-200/20 transition-colors">
-                      {/* Username + Profile Link */}
-                      <td className="py-4 px-6">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold shadow-xs">
-                            <Instagram className="w-4 h-4" />
-                          </div>
-                          <div>
-                            <div className="font-bold text-sm text-base-content flex items-center gap-1.5">
-                              @{seed.username}
-                              {seed.followersCount ? (
-                                <span className="text-[11px] font-normal text-base-content/50">
-                                  ({(seed.followersCount).toLocaleString()} followers)
-                                </span>
-                              ) : null}
-                            </div>
-                            <a
-                              href={seed.profileUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-xs text-primary/80 hover:text-primary hover:underline inline-flex items-center gap-1 mt-0.5"
-                            >
-                              View profile <ExternalLink className="w-3 h-3" />
-                            </a>
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* Status Badge */}
-                      <td className="py-4 px-4 text-center">
-                        {isVerified && (
-                          <span className="badge badge-success badge-sm font-semibold gap-1 text-white">
-                            <CheckCircle2 className="w-3 h-3" /> Verified
-                          </span>
-                        )}
-                        {isCandidate && (
-                          <span className="badge badge-info badge-sm font-semibold gap-1 text-white">
-                            <Compass className="w-3 h-3" /> Candidate
-                          </span>
-                        )}
-                        {isPaused && (
-                          <span className="badge badge-warning badge-sm font-semibold gap-1 text-white">
-                            <PauseCircle className="w-3 h-3" /> Paused
-                          </span>
-                        )}
-                        {isArchived && (
-                          <span className="badge badge-ghost badge-sm font-semibold gap-1 text-base-content/60">
-                            <ArchiveIcon className="w-3 h-3" /> Archived
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Source */}
-                      <td className="py-4 px-4 text-center">
-                        <span
-                          className={`badge font-mono text-xs capitalize ${
-                            seed.source === 'auto-discovery'
-                              ? 'badge-outline badge-primary font-semibold'
-                              : 'badge-ghost'
-                          }`}
-                        >
-                          {seed.source || 'manual'}
-                        </span>
-                      </td>
-
-                      {/* Discovery / Verified Details */}
-                      <td className="py-4 px-4 text-xs">
-                        {isCandidate ? (
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              {seed.discoveredFromUsername && (
-                                <span className="badge badge-ghost badge-xs font-semibold text-primary">
-                                  From @{seed.discoveredFromUsername}
-                                </span>
-                              )}
-                              {(seed.discoveryCount || 1) > 1 && (
-                                <span className="badge badge-primary/10 text-primary border-primary/20 badge-xs font-bold">
-                                  Seen {seed.discoveryCount}x
-                                </span>
-                              )}
-                            </div>
-                            {seed.discoverySignals && seed.discoverySignals.length > 0 && (
-                              <div className="flex items-center gap-1 flex-wrap">
-                                {seed.discoverySignals.map((sig) => (
-                                  <span key={sig} className="badge badge-neutral badge-xs text-[10px]">
-                                    {sig}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                            {seed.discoveryReason && (
-                              <p className="text-base-content/50 truncate max-w-xs text-[11px]" title={seed.discoveryReason}>
-                                {seed.discoveryReason}
-                              </p>
-                            )}
-                          </div>
-                        ) : seed.verifiedAt ? (
-                          <div className="space-y-0.5">
-                            <div className="text-base-content/80 font-medium">
-                              {new Date(seed.verifiedAt).toLocaleDateString('en-US', {
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric',
-                              })}
-                            </div>
-                            {seed.lastScannedAt && (
-                              <div className="text-[10px] text-base-content/40">
-                                Scanned {new Date(seed.lastScannedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-base-content/40">—</span>
-                        )}
-                      </td>
-
-                      {/* Actions */}
-                      <td className="py-4 px-6 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          {/* Candidate Actions: Approve or Reject */}
-                          {isCandidate && (
-                            <>
-                              <button
-                                onClick={() =>
-                                  handleUpdateStatus(
-                                    seed._id,
-                                    'verified',
-                                    true,
-                                    `Candidate @${seed.username} approved as verified seed!`
-                                  )
-                                }
-                                disabled={isActing}
-                                className="btn btn-success btn-xs text-white rounded-lg gap-1 font-semibold shadow-xs"
-                                title="Approve candidate into verified seed pool"
-                              >
-                                <Check className="w-3.5 h-3.5" />
-                                Approve
-                              </button>
-                              <button
-                                onClick={() =>
-                                  handleUpdateStatus(
-                                    seed._id,
-                                    'archived',
-                                    false,
-                                    `Candidate @${seed.username} rejected/archived.`
-                                  )
-                                }
-                                disabled={isActing}
-                                className="btn btn-ghost btn-xs text-error hover:bg-error/10 rounded-lg gap-1 font-semibold"
-                                title="Reject and archive candidate"
-                              >
-                                <X className="w-3.5 h-3.5" />
-                                Reject
-                              </button>
-                            </>
-                          )}
-
-                          {/* Verified Actions: Pause or Archive */}
-                          {isVerified && (
-                            <>
-                              <button
-                                onClick={() => handleUpdateStatus(seed._id, 'paused', false)}
-                                disabled={isActing}
-                                className="btn btn-ghost btn-xs rounded-lg text-warning hover:bg-warning/10 gap-1 font-semibold"
-                                title="Pause seed account"
-                              >
-                                <Pause className="w-3.5 h-3.5" />
-                                Pause
-                              </button>
-                              <button
-                                onClick={() => handleUpdateStatus(seed._id, 'archived', false)}
-                                disabled={isActing}
-                                className="btn btn-ghost btn-xs rounded-lg text-error hover:bg-error/10 gap-1 font-semibold"
-                                title="Archive seed account"
-                              >
-                                <Archive className="w-3.5 h-3.5" />
-                                Archive
-                              </button>
-                            </>
-                          )}
-
-                          {/* Paused Actions: Resume or Archive */}
-                          {isPaused && (
-                            <>
-                              <button
-                                onClick={() => handleUpdateStatus(seed._id, 'verified', true)}
-                                disabled={isActing}
-                                className="btn btn-ghost btn-xs rounded-lg text-success hover:bg-success/10 gap-1 font-semibold"
-                                title="Resume seed account"
-                              >
-                                <Play className="w-3.5 h-3.5" />
-                                Resume
-                              </button>
-                              <button
-                                onClick={() => handleUpdateStatus(seed._id, 'archived', false)}
-                                disabled={isActing}
-                                className="btn btn-ghost btn-xs rounded-lg text-error hover:bg-error/10 gap-1 font-semibold"
-                                title="Archive seed account"
-                              >
-                                <Archive className="w-3.5 h-3.5" />
-                                Archive
-                              </button>
-                            </>
-                          )}
-
-                          {/* Archived Actions: Restore & Permanent Delete */}
-                          {isArchived && (
-                            <>
-                              <button
-                                onClick={() => handleUpdateStatus(seed._id, 'verified', true)}
-                                disabled={isActing}
-                                className="btn btn-ghost btn-xs rounded-lg text-primary hover:bg-primary/10 gap-1 font-semibold"
-                                title="Restore seed account to verified"
-                              >
-                                <RotateCcw className="w-3.5 h-3.5" />
-                                Restore
-                              </button>
-                              <button
-                                onClick={() => handleDeleteSeed(seed)}
-                                disabled={isActing}
-                                className="btn btn-ghost btn-xs rounded-lg text-error hover:bg-error/10 gap-1 font-semibold"
-                                title="Permanently delete archived seed"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                                Delete
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          {/* Mobile Responsive Cards */}
+          <div className="md:hidden space-y-3">
+            {seeds.map((seed) => (
+              <OperationalSeedCard
+                key={seed._id}
+                seed={seed}
+                onUpdateStatus={handleUpdateStatus}
+                onDelete={handleDeleteSeed}
+                onOpenDetails={(s) => setSelectedSeedForDetails(s)}
+                isActing={actionId === seed._id}
+              />
+            ))}
           </div>
-        )}
-      </div>
+        </div>
+      ) : (
+        /* Mode 3: All Seeds Tab (Mixed view) */
+        <div className="space-y-3">
+          {/* Desktop Table */}
+          <div className="hidden md:block card bg-base-100 border border-base-200 shadow-xs rounded-3xl overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="table w-full">
+                <thead className="bg-base-200/50 text-base-content/70 uppercase text-[11px] font-bold">
+                  <tr>
+                    <th className="py-4 px-6">Account</th>
+                    <th className="py-4 px-4 text-center">Status</th>
+                    <th className="py-4 px-4 text-center">Source</th>
+                    <th className="py-4 px-4">Discovery / Verified Info</th>
+                    <th className="py-4 px-6 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-base-200">
+                  {seeds.map((seed) => (
+                    <OperationalSeedRow
+                      key={seed._id}
+                      seed={seed}
+                      onUpdateStatus={handleUpdateStatus}
+                      onDelete={handleDeleteSeed}
+                      onOpenDetails={(s) => setSelectedSeedForDetails(s)}
+                      isActing={actionId === seed._id}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Mobile Responsive Cards */}
+          <div className="md:hidden space-y-3">
+            {seeds.map((seed) =>
+              seed.status === 'candidate' ? (
+                <CandidateCard
+                  key={seed._id}
+                  seed={seed}
+                  onUpdateStatus={handleUpdateStatus}
+                  onDelete={handleDeleteSeed}
+                  onOpenDetails={(s) => setSelectedSeedForDetails(s)}
+                  isActing={actionId === seed._id}
+                />
+              ) : (
+                <OperationalSeedCard
+                  key={seed._id}
+                  seed={seed}
+                  onUpdateStatus={handleUpdateStatus}
+                  onDelete={handleDeleteSeed}
+                  onOpenDetails={(s) => setSelectedSeedForDetails(s)}
+                  isActing={actionId === seed._id}
+                />
+              )
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Details Modal for in-depth inspection */}
+      {selectedSeedForDetails && (
+        <SeedDetailsModal
+          seed={selectedSeedForDetails}
+          onClose={() => setSelectedSeedForDetails(null)}
+          onUpdateStatus={handleUpdateStatus}
+          onDelete={handleDeleteSeed}
+          isActing={actionId === selectedSeedForDetails._id}
+        />
+      )}
     </div>
   );
 };
