@@ -25,6 +25,10 @@ const FollowLeads = () => {
   const [selectedAccount, setSelectedAccount] = useState('');
   const [reportingDate] = useState(getTodayDateBd);
   const [page, setPage] = useState(1);
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+  const [appliedRange, setAppliedRange] = useState(null);
+  const [rangeError, setRangeError] = useState('');
   const limit = 10;
   const { me, isApproved, isLoading: roleLoading, isError: roleError } = useMe();
   const { user } = useAuth();
@@ -35,14 +39,38 @@ const FollowLeads = () => {
   const account = activeAccounts.find((item) => item.slug === selectedAccount);
   const enabled = isApproved && Boolean(account) && !accountsError;
 
+  const hasAppliedRange = Boolean(user?.uid) && appliedRange?.userUid === user?.uid;
   const activity = useQuery({
-    queryKey: ['lead-my-activity', user?.uid],
-    enabled: isApproved && Boolean(user?.uid) && !roleLoading && !roleError,
+    queryKey: ['lead-my-activity-range', user?.uid, appliedRange?.from, appliedRange?.to],
+    enabled: isApproved && hasAppliedRange && !roleLoading && !roleError,
+    refetchOnWindowFocus: false,
     queryFn: async ({ signal }) => {
-      const res = await axiosSecure.get('/api/leads/my-activity', { signal });
+      const res = await axiosSecure.get('/api/leads/my-activity', {
+        params: { from: appliedRange.from, to: appliedRange.to }, signal,
+      });
       return res.data;
     },
   });
+
+  const showActivity = (event) => {
+    event.preventDefault();
+    const validDate = (value) => {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+      const date = new Date(`${value}T00:00:00.000Z`);
+      return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+    };
+    if (!validDate(fromDate) || !validDate(toDate) || fromDate > toDate) {
+      setRangeError('Select valid dates with From on or before To.');
+      return;
+    }
+    if (!isApproved || !user?.uid) return;
+    setRangeError('');
+    if (hasAppliedRange && appliedRange.from === fromDate && appliedRange.to === toDate) {
+      activity.refetch();
+    } else {
+      setAppliedRange({ from: fromDate, to: toDate, userUid: user.uid });
+    }
+  };
 
   const visible = useQuery({
     queryKey: ['follow-leads', me?.email, selectedAccount, page, limit],
@@ -85,7 +113,7 @@ const FollowLeads = () => {
       if (error && ![404, 409].includes(error?.response?.status)) return;
       return Promise.all([
         ...(!error ? [queryClient.invalidateQueries({
-          queryKey: ['lead-my-activity', variables.userUid], exact: true,
+          queryKey: ['lead-my-activity-range', variables.userUid],
         })] : []),
         queryClient.invalidateQueries({
           queryKey: ['follow-leads', variables.userEmail, variables.account],
@@ -229,28 +257,46 @@ const FollowLeads = () => {
       )}
       <section aria-labelledby="my-activity-title" className="rounded-2xl border border-base-300 bg-base-100 p-4 sm:p-5">
         <h2 id="my-activity-title" className="text-lg font-bold">My Activity</h2>
-        <p className="mt-1 text-sm text-base-content/60">Your Follow/Skip activity across all accounts.</p>
-        {activity.isPending ? <LoadingState message="Loading your activity..." /> : activity.isError ? (
-          <ErrorState message="Failed to load your activity." onRetry={activity.refetch} />
-        ) : (
-          <>
-            <p className="mt-2 text-xs text-base-content/60">Business timezone: {activity.data.timezone}</p>
-            <div className="mt-3 grid gap-4 sm:grid-cols-2">
-              {[['Today', activity.data.today], ['Yesterday', activity.data.yesterday]].map(([label, day]) => (
-                <div key={label} className="rounded-xl border border-base-300 p-3">
-                  <h3 className="font-semibold">{label} <span className="ml-1 text-xs font-normal text-base-content/60">{day.date}</span></h3>
-                  <dl className="mt-2 grid grid-cols-3 gap-2">
-                    {['followed', 'skipped', 'completed'].map((metric) => (
-                      <div key={metric} className="min-w-0">
-                        <dt className="text-xs capitalize text-base-content/60">{metric}</dt>
-                        <dd className="mt-1 break-words text-xl font-semibold tabular-nums">{day[metric]}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                </div>
-              ))}
-            </div>
-          </>
+        <p className="mt-1 text-sm text-base-content/60">View your Follow/Skip activity across all accounts.</p>
+        <form onSubmit={showActivity} className="mt-3 flex flex-wrap items-end gap-3">
+          <label className="min-w-0 flex-1 basis-40 space-y-1">
+            <span className="text-sm">From</span>
+            <input type="date" required className="input input-bordered min-w-0 w-full rounded-xl" value={fromDate} onChange={(event) => {
+              setFromDate(event.target.value);
+              setAppliedRange(null);
+              setRangeError('');
+            }} />
+          </label>
+          <label className="min-w-0 flex-1 basis-40 space-y-1">
+            <span className="text-sm">To</span>
+            <input type="date" required className="input input-bordered min-w-0 w-full rounded-xl" value={toDate} onChange={(event) => {
+              setToDate(event.target.value);
+              setAppliedRange(null);
+              setRangeError('');
+            }} />
+          </label>
+          <button type="submit" className="btn btn-primary rounded-xl" disabled={!fromDate || !toDate || activity.isFetching}>Show Activity</button>
+        </form>
+        {rangeError && <p role="alert" className="mt-2 text-sm text-error">{rangeError}</p>}
+        {hasAppliedRange && (
+          <div className="mt-3" aria-live="polite">
+            {activity.isFetching || activity.isPending ? (
+              <p className="flex items-center gap-2 text-sm text-base-content/60"><span aria-hidden="true" className="loading loading-spinner loading-xs" />Loading activity...</p>
+            ) : activity.isError ? (
+              <div role="alert" className="flex flex-wrap items-center gap-2 text-sm text-error">
+                <span>Failed to load your activity.</span>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => activity.refetch()}>Try Again</button>
+              </div>
+            ) : (
+              <>
+                <p className="text-xs text-base-content/60">For selected period: {activity.data.from} to {activity.data.to} (inclusive) · {activity.data.timezone}</p>
+                <dl className="mt-2 flex flex-wrap gap-x-8 gap-y-2">
+                  <div className="flex items-baseline gap-2"><dt className="text-sm text-base-content/60">Followed</dt><dd className="text-xl font-semibold tabular-nums">{activity.data.followed}</dd></div>
+                  <div className="flex items-baseline gap-2"><dt className="text-sm text-base-content/60">Skipped</dt><dd className="text-xl font-semibold tabular-nums">{activity.data.skipped}</dd></div>
+                </dl>
+              </>
+            )}
+          </div>
         )}
       </section>
     </div>
