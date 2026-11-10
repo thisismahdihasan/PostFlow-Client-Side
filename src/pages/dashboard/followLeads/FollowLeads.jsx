@@ -40,6 +40,14 @@ const FollowLeads = () => {
   const enabled = isApproved && Boolean(account) && !accountsError;
 
   const hasAppliedRange = Boolean(user?.uid) && appliedRange?.userUid === user?.uid;
+  const businessDate = useQuery({
+    queryKey: ['lead-my-activity', user?.uid],
+    enabled: isApproved && Boolean(user?.uid) && !roleLoading && !roleError,
+    queryFn: async ({ signal }) => {
+      const res = await axiosSecure.get('/api/leads/my-activity', { signal });
+      return res.data;
+    },
+  });
   const activity = useQuery({
     queryKey: ['lead-my-activity-range', user?.uid, appliedRange?.from, appliedRange?.to],
     enabled: isApproved && hasAppliedRange && !roleLoading && !roleError,
@@ -52,24 +60,39 @@ const FollowLeads = () => {
     },
   });
 
-  const showActivity = (event) => {
-    event.preventDefault();
+  const applyActivityRange = (from, to, presetDays = null) => {
     const validDate = (value) => {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
       const date = new Date(`${value}T00:00:00.000Z`);
       return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
     };
-    if (!validDate(fromDate) || !validDate(toDate) || fromDate > toDate) {
+    if (!validDate(from) || !validDate(to) || from > to) {
       setRangeError('Select valid dates with From on or before To.');
       return;
     }
     if (!isApproved || !user?.uid) return;
     setRangeError('');
-    if (hasAppliedRange && appliedRange.from === fromDate && appliedRange.to === toDate) {
+    if (hasAppliedRange && appliedRange.from === from && appliedRange.to === to) {
       activity.refetch();
-    } else {
-      setAppliedRange({ from: fromDate, to: toDate, userUid: user.uid });
     }
+    setAppliedRange({ from, to, presetDays, userUid: user.uid });
+  };
+
+  const showActivity = (event) => {
+    event.preventDefault();
+    applyActivityRange(fromDate, toDate);
+  };
+
+  const selectPreset = (days) => {
+    const today = businessDate.data?.today?.date;
+    if (!today || businessDate.isError) return;
+    const start = new Date(`${today}T00:00:00.000Z`);
+    if (Number.isNaN(start.getTime())) return;
+    start.setUTCDate(start.getUTCDate() - days + 1);
+    const from = start.toISOString().slice(0, 10);
+    setFromDate(from);
+    setToDate(today);
+    applyActivityRange(from, today, days);
   };
 
   const visible = useQuery({
@@ -143,11 +166,11 @@ const FollowLeads = () => {
   if (!isApproved) return <ErrorState message="Approved access is required to follow leads." />;
 
   return (
-    <div className="space-y-5 py-2">
+    <div className="space-y-4 py-2">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div className="min-w-0">
           <h1 className="text-3xl sm:text-4xl xl:text-5xl font-bold tracking-tight">Follow Leads</h1>
-          <p className="mt-3 text-sm sm:text-base text-base-content/60">Process available Instagram leads for your selected account.</p>
+          <p className="mt-2 text-sm sm:text-base text-base-content/60">Process available Instagram leads for your selected account.</p>
         </div>
         <div className="relative w-full sm:w-72 xl:shrink-0">
           <span aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 z-10 flex size-9 -translate-y-1/2 items-center justify-center rounded-xl bg-primary/15 font-bold text-primary">
@@ -183,17 +206,17 @@ const FollowLeads = () => {
       ) : (
         <>
           <dl className="grid grid-cols-1 sm:grid-cols-[1.2fr_1fr_1fr] divide-y sm:divide-y-0 sm:divide-x divide-base-300 overflow-hidden rounded-2xl border border-base-300 bg-base-100">
-            <div className="flex min-w-0 flex-col justify-center gap-1 px-5 py-3">
+            <div className="flex min-w-0 flex-col justify-center gap-1 px-4 py-2.5">
               <dt className="text-sm text-base-content/60">Selected account</dt>
-              <dd className="break-words text-xl sm:text-2xl font-bold tracking-tight">{account.displayName || account.slug}</dd>
+              <dd className="break-words text-lg sm:text-xl font-bold tracking-tight">{account.displayName || account.slug}</dd>
             </div>
-            <div className="min-w-0 px-5 py-3">
+            <div className="min-w-0 px-4 py-2.5">
               <dt className="text-sm text-base-content/60">Available now</dt>
-              <dd className="mt-1 break-words text-4xl sm:text-5xl font-bold tabular-nums tracking-tight text-primary">{visible.isPending || visible.isError ? '—' : pagination.totalCount}</dd>
+              <dd className="mt-1 break-words text-2xl sm:text-3xl font-bold tabular-nums tracking-tight text-primary">{visible.isPending || visible.isError ? '—' : pagination.totalCount}</dd>
             </div>
-            <div className="min-w-0 px-5 py-3">
+            <div className="min-w-0 px-4 py-2.5">
               <dt className="text-sm text-base-content/60">Today's assigned</dt>
-              <dd className="mt-1 break-words text-4xl sm:text-5xl font-bold tabular-nums tracking-tight">{quota.isPending || quota.isError ? '—' : quota.data.totalAssignedCount}</dd>
+              <dd className="mt-1 break-words text-2xl sm:text-3xl font-bold tabular-nums tracking-tight">{quota.isPending || quota.isError ? '—' : quota.data.totalAssignedCount}</dd>
             </div>
           </dl>
           {quota.isError && <ErrorState message="Failed to load today's assigned count." onRetry={quota.refetch} />}
@@ -256,30 +279,46 @@ const FollowLeads = () => {
         </>
       )}
       <section aria-labelledby="my-activity-title" className="rounded-2xl border border-base-300 bg-base-100 p-4 sm:p-5">
-        <h2 id="my-activity-title" className="text-lg font-bold">My Activity</h2>
-        <p className="mt-1 text-sm text-base-content/60">View your Follow/Skip activity across all accounts.</p>
-        <form onSubmit={showActivity} className="mt-3 flex flex-wrap items-end gap-3">
-          <label className="min-w-0 flex-1 basis-40 space-y-1">
-            <span className="text-sm">From</span>
-            <input type="date" required className="input input-bordered min-w-0 w-full rounded-xl" value={fromDate} onChange={(event) => {
+        <div className="flex flex-wrap items-center gap-2.5">
+          <h2 id="my-activity-title" className="text-lg font-bold">My Activity</h2>
+          <span className="rounded-full bg-primary/15 px-2.5 py-0.5 text-xs font-semibold text-primary">All accounts</span>
+        </div>
+        <p className="mt-1 text-sm text-base-content/60">Your follow and skip activity across every account.</p>
+        <form onSubmit={showActivity} className="mt-4 flex flex-wrap items-end gap-3">
+          <label className="min-w-0 flex-1 basis-36 space-y-1 sm:flex-none sm:w-40">
+            <span className="text-xs text-base-content/60">From</span>
+            <input type="date" required className="input input-bordered h-11 min-w-0 w-full rounded-lg border-base-300 bg-transparent px-3 text-sm" value={fromDate} onChange={(event) => {
               setFromDate(event.target.value);
               setAppliedRange(null);
               setRangeError('');
             }} />
           </label>
-          <label className="min-w-0 flex-1 basis-40 space-y-1">
-            <span className="text-sm">To</span>
-            <input type="date" required className="input input-bordered min-w-0 w-full rounded-xl" value={toDate} onChange={(event) => {
+          <label className="min-w-0 flex-1 basis-36 space-y-1 sm:flex-none sm:w-40">
+            <span className="text-xs text-base-content/60">To</span>
+            <input type="date" required className="input input-bordered h-11 min-w-0 w-full rounded-lg border-base-300 bg-transparent px-3 text-sm" value={toDate} onChange={(event) => {
               setToDate(event.target.value);
               setAppliedRange(null);
               setRangeError('');
             }} />
           </label>
-          <button type="submit" className="btn btn-primary rounded-xl" disabled={!fromDate || !toDate || activity.isFetching}>Show Activity</button>
+          {!appliedRange?.presetDays && <button type="submit" className="btn btn-ghost min-h-11 rounded-lg px-3" disabled={!fromDate || !toDate || activity.isFetching}>Apply</button>}
+          <div role="group" aria-label="Activity date presets" className="flex flex-wrap gap-2 sm:ml-2">
+            {[1, 3, 7, 30].map((days) => (
+              <button key={days} type="button" aria-pressed={hasAppliedRange && appliedRange.presetDays === days}
+                className={`min-h-11 rounded-lg border px-3 text-sm transition-colors focus-visible:outline-primary ${hasAppliedRange && appliedRange.presetDays === days ? 'border-primary/30 bg-primary/15 font-semibold text-primary' : 'border-base-300 text-base-content/60 hover:bg-base-200'}`}
+                disabled={!businessDate.data?.today?.date || businessDate.isFetching || businessDate.isError}
+                onClick={() => selectPreset(days)}
+              >{days === 1 ? 'Today' : `${days} days`}</button>
+            ))}
+          </div>
+          <p className="min-w-0 py-3 text-xs text-base-content/60 sm:ml-auto">
+            {hasAppliedRange && activity.data ? activity.data.timezone : businessDate.data?.timezone} · both dates included
+          </p>
         </form>
+        {businessDate.isError && <p role="alert" className="mt-2 text-sm text-error">Date presets are unavailable.<button type="button" className="btn btn-ghost btn-sm ml-2" onClick={() => businessDate.refetch()}>Retry</button></p>}
         {rangeError && <p role="alert" className="mt-2 text-sm text-error">{rangeError}</p>}
         {hasAppliedRange && (
-          <div className="mt-3" aria-live="polite">
+          <div className="mt-4" aria-live="polite">
             {activity.isFetching || activity.isPending ? (
               <p className="flex items-center gap-2 text-sm text-base-content/60"><span aria-hidden="true" className="loading loading-spinner loading-xs" />Loading activity...</p>
             ) : activity.isError ? (
@@ -288,13 +327,16 @@ const FollowLeads = () => {
                 <button type="button" className="btn btn-ghost btn-sm" onClick={() => activity.refetch()}>Try Again</button>
               </div>
             ) : (
-              <>
-                <p className="text-xs text-base-content/60">For selected period: {activity.data.from} to {activity.data.to} (inclusive) · {activity.data.timezone}</p>
-                <dl className="mt-2 flex flex-wrap gap-x-8 gap-y-2">
-                  <div className="flex items-baseline gap-2"><dt className="text-sm text-base-content/60">Followed</dt><dd className="text-xl font-semibold tabular-nums">{activity.data.followed}</dd></div>
-                  <div className="flex items-baseline gap-2"><dt className="text-sm text-base-content/60">Skipped</dt><dd className="text-xl font-semibold tabular-nums">{activity.data.skipped}</dd></div>
-                </dl>
-              </>
+              <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-base-300 bg-base-200/30 px-4 py-3">
+                  <dt className="flex items-center gap-2 text-sm text-base-content/60"><span aria-hidden="true" className="size-2 rounded-full bg-success" />Followed</dt>
+                  <dd className="text-3xl font-semibold tabular-nums">{activity.data.followed}</dd>
+                </div>
+                <div className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-base-300 bg-base-200/30 px-4 py-3">
+                  <dt className="flex items-center gap-2 text-sm text-base-content/60"><span aria-hidden="true" className="size-2 rounded-full bg-warning" />Skipped</dt>
+                  <dd className="text-3xl font-semibold tabular-nums text-warning">{activity.data.skipped}</dd>
+                </div>
+              </dl>
             )}
           </div>
         )}
