@@ -49,12 +49,12 @@ const FollowLeads = () => {
     },
   });
   const activity = useQuery({
-    queryKey: ['lead-my-activity-range', user?.uid, appliedRange?.from, appliedRange?.to],
-    enabled: isApproved && hasAppliedRange && !roleLoading && !roleError,
+    queryKey: ['lead-my-activity-range', user?.uid, selectedAccount, appliedRange?.from, appliedRange?.to],
+    enabled: enabled && hasAppliedRange && !roleLoading && !roleError,
     refetchOnWindowFocus: false,
     queryFn: async ({ signal }) => {
       const res = await axiosSecure.get('/api/leads/my-activity', {
-        params: { from: appliedRange.from, to: appliedRange.to }, signal,
+        params: { account: selectedAccount, from: appliedRange.from, to: appliedRange.to }, signal,
       });
       return res.data;
     },
@@ -136,7 +136,7 @@ const FollowLeads = () => {
       if (error && ![404, 409].includes(error?.response?.status)) return;
       return Promise.all([
         ...(!error ? [queryClient.invalidateQueries({
-          queryKey: ['lead-my-activity-range', variables.userUid],
+          queryKey: ['lead-my-activity-range', variables.userUid, variables.account],
         })] : []),
         queryClient.invalidateQueries({
           queryKey: ['follow-leads', variables.userEmail, variables.account],
@@ -219,6 +219,69 @@ const FollowLeads = () => {
               <dd className="mt-1 break-words text-2xl sm:text-3xl font-bold tabular-nums tracking-tight">{quota.isPending || quota.isError ? '—' : quota.data.totalAssignedCount}</dd>
             </div>
           </dl>
+          <section aria-labelledby="my-activity-title" className="rounded-2xl border border-base-300 bg-base-100 px-4 py-3 sm:px-5">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h2 id="my-activity-title" className="text-lg font-bold">My Activity</h2>
+              <span className="max-w-full break-words rounded-full bg-primary/15 px-2.5 py-0.5 text-xs font-semibold text-primary">{account.displayName || account.slug}</span>
+            </div>
+            <p className="mt-1 text-sm text-base-content/60">Your follow and skip activity for this account.</p>
+            <form onSubmit={showActivity} className="mt-4 flex flex-wrap items-end gap-3">
+              <label className="min-w-0 flex-1 basis-36 space-y-1 sm:flex-none sm:w-40">
+                <span className="text-xs text-base-content/60">From</span>
+                <input type="date" required className="input input-bordered h-11 min-w-0 w-full rounded-lg border-base-300 bg-transparent px-3 text-sm" value={fromDate} onChange={(event) => {
+                  setFromDate(event.target.value);
+                  setAppliedRange(null);
+                  setRangeError('');
+                }} />
+              </label>
+              <label className="min-w-0 flex-1 basis-36 space-y-1 sm:flex-none sm:w-40">
+                <span className="text-xs text-base-content/60">To</span>
+                <input type="date" required className="input input-bordered h-11 min-w-0 w-full rounded-lg border-base-300 bg-transparent px-3 text-sm" value={toDate} onChange={(event) => {
+                  setToDate(event.target.value);
+                  setAppliedRange(null);
+                  setRangeError('');
+                }} />
+              </label>
+              {!appliedRange?.presetDays && <button type="submit" className="btn btn-ghost min-h-11 rounded-lg px-3" disabled={!fromDate || !toDate || activity.isFetching}>Apply</button>}
+              <div role="group" aria-label="Activity date presets" className="flex flex-wrap gap-2 sm:ml-2">
+                {[1, 3, 7, 30].map((days) => (
+                  <button key={days} type="button" aria-pressed={hasAppliedRange && appliedRange.presetDays === days}
+                    className={`min-h-11 rounded-lg border px-3 text-sm transition-colors focus-visible:outline-primary ${hasAppliedRange && appliedRange.presetDays === days ? 'border-primary/30 bg-primary/15 font-semibold text-primary' : 'border-base-300 text-base-content/60 hover:bg-base-200'}`}
+                    disabled={!businessDate.data?.today?.date || businessDate.isFetching || businessDate.isError}
+                    onClick={() => selectPreset(days)}
+                  >{days === 1 ? 'Today' : `${days} days`}</button>
+                ))}
+              </div>
+              <p className="min-w-0 py-3 text-xs text-base-content/60 sm:ml-auto">
+                {hasAppliedRange && activity.data ? activity.data.timezone : businessDate.data?.timezone} · both dates included
+              </p>
+            </form>
+            {businessDate.isError && <p role="alert" className="mt-2 text-sm text-error">Date presets are unavailable.<button type="button" className="btn btn-ghost btn-sm ml-2" onClick={() => businessDate.refetch()}>Retry</button></p>}
+            {rangeError && <p role="alert" className="mt-2 text-sm text-error">{rangeError}</p>}
+            {hasAppliedRange && (
+              <div className="mt-4" aria-live="polite">
+                {activity.isFetching || activity.isPending ? (
+                  <p className="flex items-center gap-2 text-sm text-base-content/60"><span aria-hidden="true" className="loading loading-spinner loading-xs" />Loading activity...</p>
+                ) : activity.isError ? (
+                  <div role="alert" className="flex flex-wrap items-center gap-2 text-sm text-error">
+                    <span>Failed to load your activity.</span>
+                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => activity.refetch()}>Try Again</button>
+                  </div>
+                ) : (
+                  <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-base-300 bg-base-200/30 px-4 py-3">
+                      <dt className="flex items-center gap-2 text-sm text-base-content/60"><span aria-hidden="true" className="size-2 rounded-full bg-success" />Followed</dt>
+                      <dd className="text-3xl font-semibold tabular-nums">{activity.data.followed}</dd>
+                    </div>
+                    <div className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-base-300 bg-base-200/30 px-4 py-3">
+                      <dt className="flex items-center gap-2 text-sm text-base-content/60"><span aria-hidden="true" className="size-2 rounded-full bg-warning" />Skipped</dt>
+                      <dd className="text-3xl font-semibold tabular-nums text-warning">{activity.data.skipped}</dd>
+                    </div>
+                  </dl>
+                )}
+              </div>
+            )}
+          </section>
           {quota.isError && <ErrorState message="Failed to load today's assigned count." onRetry={quota.refetch} />}
           {visible.isPending || pageOutOfRange ? <LoadingState message="Loading leads..." /> : visible.isError ? (
             <ErrorState message="Failed to load available leads." onRetry={visible.refetch} />
@@ -278,69 +341,6 @@ const FollowLeads = () => {
           )}
         </>
       )}
-      <section aria-labelledby="my-activity-title" className="rounded-2xl border border-base-300 bg-base-100 p-4 sm:p-5">
-        <div className="flex flex-wrap items-center gap-2.5">
-          <h2 id="my-activity-title" className="text-lg font-bold">My Activity</h2>
-          <span className="rounded-full bg-primary/15 px-2.5 py-0.5 text-xs font-semibold text-primary">All accounts</span>
-        </div>
-        <p className="mt-1 text-sm text-base-content/60">Your follow and skip activity across every account.</p>
-        <form onSubmit={showActivity} className="mt-4 flex flex-wrap items-end gap-3">
-          <label className="min-w-0 flex-1 basis-36 space-y-1 sm:flex-none sm:w-40">
-            <span className="text-xs text-base-content/60">From</span>
-            <input type="date" required className="input input-bordered h-11 min-w-0 w-full rounded-lg border-base-300 bg-transparent px-3 text-sm" value={fromDate} onChange={(event) => {
-              setFromDate(event.target.value);
-              setAppliedRange(null);
-              setRangeError('');
-            }} />
-          </label>
-          <label className="min-w-0 flex-1 basis-36 space-y-1 sm:flex-none sm:w-40">
-            <span className="text-xs text-base-content/60">To</span>
-            <input type="date" required className="input input-bordered h-11 min-w-0 w-full rounded-lg border-base-300 bg-transparent px-3 text-sm" value={toDate} onChange={(event) => {
-              setToDate(event.target.value);
-              setAppliedRange(null);
-              setRangeError('');
-            }} />
-          </label>
-          {!appliedRange?.presetDays && <button type="submit" className="btn btn-ghost min-h-11 rounded-lg px-3" disabled={!fromDate || !toDate || activity.isFetching}>Apply</button>}
-          <div role="group" aria-label="Activity date presets" className="flex flex-wrap gap-2 sm:ml-2">
-            {[1, 3, 7, 30].map((days) => (
-              <button key={days} type="button" aria-pressed={hasAppliedRange && appliedRange.presetDays === days}
-                className={`min-h-11 rounded-lg border px-3 text-sm transition-colors focus-visible:outline-primary ${hasAppliedRange && appliedRange.presetDays === days ? 'border-primary/30 bg-primary/15 font-semibold text-primary' : 'border-base-300 text-base-content/60 hover:bg-base-200'}`}
-                disabled={!businessDate.data?.today?.date || businessDate.isFetching || businessDate.isError}
-                onClick={() => selectPreset(days)}
-              >{days === 1 ? 'Today' : `${days} days`}</button>
-            ))}
-          </div>
-          <p className="min-w-0 py-3 text-xs text-base-content/60 sm:ml-auto">
-            {hasAppliedRange && activity.data ? activity.data.timezone : businessDate.data?.timezone} · both dates included
-          </p>
-        </form>
-        {businessDate.isError && <p role="alert" className="mt-2 text-sm text-error">Date presets are unavailable.<button type="button" className="btn btn-ghost btn-sm ml-2" onClick={() => businessDate.refetch()}>Retry</button></p>}
-        {rangeError && <p role="alert" className="mt-2 text-sm text-error">{rangeError}</p>}
-        {hasAppliedRange && (
-          <div className="mt-4" aria-live="polite">
-            {activity.isFetching || activity.isPending ? (
-              <p className="flex items-center gap-2 text-sm text-base-content/60"><span aria-hidden="true" className="loading loading-spinner loading-xs" />Loading activity...</p>
-            ) : activity.isError ? (
-              <div role="alert" className="flex flex-wrap items-center gap-2 text-sm text-error">
-                <span>Failed to load your activity.</span>
-                <button type="button" className="btn btn-ghost btn-sm" onClick={() => activity.refetch()}>Try Again</button>
-              </div>
-            ) : (
-              <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-base-300 bg-base-200/30 px-4 py-3">
-                  <dt className="flex items-center gap-2 text-sm text-base-content/60"><span aria-hidden="true" className="size-2 rounded-full bg-success" />Followed</dt>
-                  <dd className="text-3xl font-semibold tabular-nums">{activity.data.followed}</dd>
-                </div>
-                <div className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-base-300 bg-base-200/30 px-4 py-3">
-                  <dt className="flex items-center gap-2 text-sm text-base-content/60"><span aria-hidden="true" className="size-2 rounded-full bg-warning" />Skipped</dt>
-                  <dd className="text-3xl font-semibold tabular-nums text-warning">{activity.data.skipped}</dd>
-                </div>
-              </dl>
-            )}
-          </div>
-        )}
-      </section>
     </div>
   );
 };
