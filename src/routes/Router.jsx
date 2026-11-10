@@ -17,6 +17,7 @@ const ForgotPassword = lazy(() => import('../pages/public/forgotPass/ForgotPassw
 
 const DashboardHome = lazy(() => import('../pages/dashboard/dashboardHome/DashboardHome'));
 const FollowLeads = lazy(() => import('../pages/dashboard/followLeads/FollowLeads'));
+const LeadActivity = lazy(() => import('../pages/dashboard/admin/LeadActivity'));
 const CreatePost = lazy(() => import('../pages/dashboard/posts/CreatePost'));
 const AccessReq = lazy(() => import('../pages/dashboard/admin/AccessReq'));
 const AccountHashtagsManager = lazy(() => import('../pages/dashboard/admin/AccountHashtagsManager'));
@@ -115,6 +116,14 @@ export const router = createBrowserRouter([
         element: (
           <Suspense fallback={<LoadingState fullScreen={true} />}>
             <FollowLeads />
+          </Suspense>
+        ),
+      },
+      {
+        path: '/dashboard/lead-activity',
+        element: (
+          <Suspense fallback={<LoadingState fullScreen={true} />}>
+            <LeadActivity />
           </Suspense>
         ),
       },

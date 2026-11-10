@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import { useMe } from '../../../hooks/useMe';
 import { useAccounts } from '../../../hooks/useAccounts';
 import useAxiosSecure from '../../../hooks/useAxiosSecure';
+import useAuth from '../../../hooks/useAuth';
 import LoadingState from '../../../components/common/LoadingState';
 import ErrorState from '../../../components/common/ErrorState';
 import { getTodayDateBd } from '../../../utils/getTodayDateBd';
@@ -26,12 +27,22 @@ const FollowLeads = () => {
   const [page, setPage] = useState(1);
   const limit = 10;
   const { me, isApproved, isLoading: roleLoading, isError: roleError } = useMe();
+  const { user } = useAuth();
   const { accounts, isLoading: accountsLoading, isError: accountsError } = useAccounts(isApproved);
   const axiosSecure = useAxiosSecure();
   const queryClient = useQueryClient();
   const activeAccounts = accounts.filter((account) => account.isActive && account.platform === 'instagram');
   const account = activeAccounts.find((item) => item.slug === selectedAccount);
   const enabled = isApproved && Boolean(account) && !accountsError;
+
+  const activity = useQuery({
+    queryKey: ['lead-my-activity', user?.uid],
+    enabled: isApproved && Boolean(user?.uid) && !roleLoading && !roleError,
+    queryFn: async ({ signal }) => {
+      const res = await axiosSecure.get('/api/leads/my-activity', { signal });
+      return res.data;
+    },
+  });
 
   const visible = useQuery({
     queryKey: ['follow-leads', me?.email, selectedAccount, page, limit],
@@ -73,6 +84,9 @@ const FollowLeads = () => {
     onSettled: (_, error, variables) => {
       if (error && ![404, 409].includes(error?.response?.status)) return;
       return Promise.all([
+        ...(!error ? [queryClient.invalidateQueries({
+          queryKey: ['lead-my-activity', variables.userUid], exact: true,
+        })] : []),
         queryClient.invalidateQueries({
           queryKey: ['follow-leads', variables.userEmail, variables.account],
         }),
@@ -92,7 +106,7 @@ const FollowLeads = () => {
     if (!lead || mutation.isPending) return;
     mutation.mutate({
       assignmentId: lead._id, account: selectedAccount, date: lead.assignedDate,
-      status, userEmail: me.email, reportingDate,
+      status, userEmail: me.email, userUid: user.uid, reportingDate,
     });
   };
 
@@ -213,6 +227,32 @@ const FollowLeads = () => {
           )}
         </>
       )}
+      <section aria-labelledby="my-activity-title" className="rounded-2xl border border-base-300 bg-base-100 p-4 sm:p-5">
+        <h2 id="my-activity-title" className="text-lg font-bold">My Activity</h2>
+        <p className="mt-1 text-sm text-base-content/60">Your Follow/Skip activity across all accounts.</p>
+        {activity.isPending ? <LoadingState message="Loading your activity..." /> : activity.isError ? (
+          <ErrorState message="Failed to load your activity." onRetry={activity.refetch} />
+        ) : (
+          <>
+            <p className="mt-2 text-xs text-base-content/60">Business timezone: {activity.data.timezone}</p>
+            <div className="mt-3 grid gap-4 sm:grid-cols-2">
+              {[['Today', activity.data.today], ['Yesterday', activity.data.yesterday]].map(([label, day]) => (
+                <div key={label} className="rounded-xl border border-base-300 p-3">
+                  <h3 className="font-semibold">{label} <span className="ml-1 text-xs font-normal text-base-content/60">{day.date}</span></h3>
+                  <dl className="mt-2 grid grid-cols-3 gap-2">
+                    {['followed', 'skipped', 'completed'].map((metric) => (
+                      <div key={metric} className="min-w-0">
+                        <dt className="text-xs capitalize text-base-content/60">{metric}</dt>
+                        <dd className="mt-1 break-words text-xl font-semibold tabular-nums">{day[metric]}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </section>
     </div>
   );
 };

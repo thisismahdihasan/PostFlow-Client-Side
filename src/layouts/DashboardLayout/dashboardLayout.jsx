@@ -165,6 +165,12 @@ const DashboardLayout = () => {
               {isAdmin && (
                 <>
                   <li>
+                    <NavLink to="/dashboard/lead-activity" className={navClass}>
+                      <UserCheck className="w-5 h-5" />
+                      <span className="font-semibold">Lead Activity</span>
+                    </NavLink>
+                  </li>
+                  <li>
                     <NavLink to="/dashboard/AccessReq" className={navClass}>
                       <Users className="w-5 h-5" />
                       <span className="font-semibold">Access Requests </span>
