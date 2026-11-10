@@ -1,14 +1,14 @@
 import React from 'react';
 import { Link, NavLink, Outlet } from 'react-router';
 import { IoCreateOutline, IoHomeOutline } from 'react-icons/io5';
-import { Users, Hash, Settings2, History, Settings, BrainCircuit, Sprout } from 'lucide-react';
+import { Users, Hash, Settings2, History, Settings, BrainCircuit, Sprout, UserCheck } from 'lucide-react';
 import LoadingState from '../../components/common/LoadingState';
 import { useMe } from '../../hooks/useMe';
 
 import ThemeToggle from '../../components/common/ThemeToggle';
 
 const DashboardLayout = () => {
-  const { isAdmin, isCreator } = useMe();
+  const { isAdmin, isCreator, isApproved } = useMe();
 
   const navClass = ({ isActive }) =>
     [
@@ -142,6 +142,15 @@ const DashboardLayout = () => {
                   <span className="font-semibold">Homepage</span>
                 </NavLink>
               </li>
+
+              {isApproved && (
+                <li>
+                  <NavLink to="/dashboard/follow-leads" className={navClass}>
+                    <UserCheck className="w-5 h-5" />
+                    <span className="font-semibold">Follow Leads</span>
+                  </NavLink>
+                </li>
+              )}
 
               {(isAdmin || isCreator) && (
                 <li>
