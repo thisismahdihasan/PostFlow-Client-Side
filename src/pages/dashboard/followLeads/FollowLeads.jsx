@@ -101,16 +101,19 @@ const FollowLeads = () => {
   if (!isApproved) return <ErrorState message="Approved access is required to follow leads." />;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Follow Leads</h1>
-          <p className="mt-1 text-sm text-base-content/60">Process available Instagram leads for your selected account.</p>
+    <div className="space-y-6 sm:space-y-8 py-2 sm:py-4">
+      <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-3xl sm:text-4xl xl:text-5xl font-bold tracking-tight">Follow Leads</h1>
+          <p className="mt-3 text-sm sm:text-base text-base-content/60">Process available Instagram leads for your selected account.</p>
         </div>
-        <div className="bg-base-100 p-3 rounded-2xl border border-base-200 shadow-sm">
+        <div className="relative w-full sm:w-72 xl:shrink-0">
+          <span aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 z-10 flex size-9 -translate-y-1/2 items-center justify-center rounded-xl bg-primary/15 font-bold text-primary">
+            {(account?.displayName || account?.slug || 'A').charAt(0).toUpperCase()}
+          </span>
           <select
             aria-label="Select Account"
-            className="select select-bordered rounded-xl w-full sm:min-w-[200px] font-semibold"
+            className="select select-bordered h-14 w-full rounded-2xl border-base-300 bg-base-100 pl-14 pr-10 font-semibold focus-visible:outline-primary"
             value={selectedAccount}
             onChange={(event) => {
               setSelectedAccount(event.target.value);
@@ -137,12 +140,21 @@ const FollowLeads = () => {
         </div>
       ) : (
         <>
-          <div className="bg-base-100 rounded-2xl p-5 border border-base-200 space-y-2">
-            <h2 className="font-bold text-lg">{account.displayName || account.slug}</h2>
-            <p>Available now: <strong>{visible.isPending || visible.isError ? '—' : pagination.totalCount}</strong></p>
-            <p>Today's assigned: <strong>{quota.isPending || quota.isError ? '—' : quota.data.totalAssignedCount}</strong></p>
-            {quota.isError && <ErrorState message="Failed to load today's assigned count." onRetry={quota.refetch} />}
-          </div>
+          <dl className="grid grid-cols-1 sm:grid-cols-[1.2fr_1fr_1fr] divide-y sm:divide-y-0 sm:divide-x divide-base-300 overflow-hidden rounded-3xl border border-base-300 bg-base-100">
+            <div className="flex min-w-0 flex-col justify-center gap-2 p-6 sm:p-8">
+              <dt className="text-sm text-base-content/60">Selected account</dt>
+              <dd className="break-words text-xl sm:text-2xl font-bold tracking-tight">{account.displayName || account.slug}</dd>
+            </div>
+            <div className="min-w-0 p-6 sm:p-8">
+              <dt className="text-sm text-base-content/60">Available now</dt>
+              <dd className="mt-3 break-words text-4xl sm:text-5xl font-bold tabular-nums tracking-tight text-primary">{visible.isPending || visible.isError ? '—' : pagination.totalCount}</dd>
+            </div>
+            <div className="min-w-0 p-6 sm:p-8">
+              <dt className="text-sm text-base-content/60">Today's assigned</dt>
+              <dd className="mt-3 break-words text-4xl sm:text-5xl font-bold tabular-nums tracking-tight">{quota.isPending || quota.isError ? '—' : quota.data.totalAssignedCount}</dd>
+            </div>
+          </dl>
+          {quota.isError && <ErrorState message="Failed to load today's assigned count." onRetry={quota.refetch} />}
           {visible.isPending || pageOutOfRange ? <LoadingState message="Loading leads..." /> : visible.isError ? (
             <ErrorState message="Failed to load available leads." onRetry={visible.refetch} />
           ) : pagination.totalCount === 0 ? (
@@ -159,24 +171,33 @@ const FollowLeads = () => {
                 const hasProfile = /^(?!\.)(?!.*\.\.)(?!.*\.$)[A-Za-z0-9._]{1,30}$/.test(username);
                 const imageUrl = getImageUrl(lead.profilePicUrl);
                 return (
-                  <div key={lead._id} className="bg-base-100 rounded-3xl p-6 border border-base-200 shadow-sm space-y-4">
-                    <div className="flex items-center gap-3">
-                      <SeedAvatar key={imageUrl || 'fallback'} src={imageUrl} alt={hasProfile ? `@${username}` : 'Instagram profile'} />
-                      <h2 className="text-xl sm:text-2xl font-bold break-all">{hasProfile ? `@${username}` : 'Profile unavailable'}</h2>
-                    </div>
-                    {hasProfile ? (
-                      <a className="btn btn-outline rounded-xl" href={`https://instagram.com/${username}/`} target="_blank" rel="noopener noreferrer">
-                        Open Instagram <ExternalLink className="w-4 h-4" />
-                      </a>
-                    ) : (
-                      <div className="space-y-2">
-                        <button className="btn btn-outline rounded-xl" disabled>Open Instagram</button>
-                        <p className="text-sm text-base-content/60">This lead does not have a usable Instagram username.</p>
+                  <div key={lead._id} className="flex flex-col gap-5 rounded-3xl border border-base-300 bg-base-100 p-5 sm:p-6 xl:flex-row xl:items-center xl:justify-between">
+                    <div className="flex min-w-0 items-center gap-4 sm:gap-5">
+                      <SeedAvatar key={imageUrl || 'fallback'} src={imageUrl} size="lg" className="!rounded-full [&_img]:!rounded-full" alt={hasProfile ? `@${username}` : 'Instagram profile'} />
+                      <div className="min-w-0">
+                        <h2 className="text-lg sm:text-xl font-bold tracking-tight break-all">{hasProfile ? `@${username}` : 'Profile unavailable'}</h2>
+                        <p className="mt-1.5 flex items-center gap-2 text-sm text-base-content/60"><span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-success" />Ready to follow</p>
                       </div>
-                    )}
-                    <div className="flex flex-wrap gap-3">
-                      <button className="btn btn-primary rounded-xl" disabled={mutation.isPending} onClick={() => processLead(lead, 'followed')}>Mark Followed</button>
-                      <button className="btn btn-ghost border border-base-200 rounded-xl" disabled={mutation.isPending} onClick={() => processLead(lead, 'skipped')}>Skip</button>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3 xl:shrink-0">
+                      {hasProfile ? (
+                        <a className="btn btn-outline min-h-12 rounded-xl border-base-content/20 px-5 text-base-content hover:border-base-content/40 hover:bg-base-200" href={`https://instagram.com/${username}/`} target="_blank" rel="noopener noreferrer">
+                          Open Instagram <ExternalLink className="w-4 h-4" />
+                        </a>
+                      ) : (
+                        <div className="space-y-2">
+                          <button className="btn btn-outline min-h-12 rounded-xl" disabled>Open Instagram</button>
+                          <p className="text-sm text-base-content/60">This lead does not have a usable Instagram username.</p>
+                        </div>
+                      )}
+                      <button className="btn btn-primary min-h-12 rounded-xl px-5 shadow-lg shadow-primary/20 disabled:shadow-none" disabled={mutation.isPending} onClick={() => processLead(lead, 'followed')}>
+                        {mutation.isPending && mutation.variables?.assignmentId === lead._id && mutation.variables?.status === 'followed' && <span aria-hidden="true" className="loading loading-spinner loading-xs" />}
+                        Mark Followed
+                      </button>
+                      <button className="btn btn-ghost min-h-12 rounded-xl px-3 text-base-content/60 hover:text-base-content" disabled={mutation.isPending} onClick={() => processLead(lead, 'skipped')}>
+                        {mutation.isPending && mutation.variables?.assignmentId === lead._id && mutation.variables?.status === 'skipped' && <span aria-hidden="true" className="loading loading-spinner loading-xs" />}
+                        Skip
+                      </button>
                     </div>
                   </div>
                 );
@@ -184,13 +205,11 @@ const FollowLeads = () => {
             </div>
           )}
           {!visible.isPending && !visible.isError && !pageOutOfRange && pagination.totalPages > 1 && (
-            <div className="flex items-center justify-between gap-3 rounded-2xl border border-base-200 bg-base-100 px-4 py-3">
-              <div className="join">
-                <button className="join-item btn btn-sm" disabled={page === 1 || visible.isFetching || mutation.isPending} onClick={() => setPage((current) => current - 1)}>Previous</button>
-                <span className="join-item btn btn-sm cursor-default">Page {page} of {pagination.totalPages}</span>
-                <button className="join-item btn btn-sm" disabled={page >= pagination.totalPages || visible.isFetching || mutation.isPending} onClick={() => setPage((current) => current + 1)}>Next</button>
-              </div>
-            </div>
+            <nav aria-label="Lead queue pagination" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-base-300 bg-base-100 p-3 sm:px-5">
+              <button className="btn btn-ghost min-h-11 rounded-xl" disabled={page === 1 || visible.isFetching || mutation.isPending} onClick={() => setPage((current) => current - 1)}>Previous</button>
+              <span className="text-sm text-base-content/60">Page {page} of {pagination.totalPages}</span>
+              <button className="btn btn-ghost min-h-11 rounded-xl" disabled={page >= pagination.totalPages || visible.isFetching || mutation.isPending} onClick={() => setPage((current) => current + 1)}>Next</button>
+            </nav>
           )}
         </>
       )}
